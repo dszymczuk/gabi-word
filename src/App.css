@@ -33,6 +33,20 @@ body {
 
 /* ─── Layout ───────────────────────────────────────────────── */
 
+/* Hidden textarea — captures keyboard/mobile input; invisible but focusable */
+.hidden-input {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  resize: none;
+  border: none;
+  outline: none;
+}
+
 .app {
   display: flex;
   flex-direction: column;

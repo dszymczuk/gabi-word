@@ -23,6 +23,9 @@ const COLORS = [
 const STORAGE_KEY = 'gabi-word-settings'
 const DEFAULT_SETTINGS = { selectedColors: ['black'], fontSize: 54 }
 
+// Zero-width space keeps the textarea non-empty so Backspace always fires an input event
+const SENTINEL = '​'
+
 function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -47,6 +50,7 @@ export default function App() {
   const settingsRef = useRef(settings)
   const settingsOpenRef = useRef(false)
   const bottomRef = useRef(null)
+  const inputRef = useRef(null)
 
   useEffect(() => { settingsRef.current = settings }, [settings])
   useEffect(() => { settingsOpenRef.current = settingsOpen }, [settingsOpen])
@@ -59,36 +63,60 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [chars])
 
+  // Auto-focus the hidden textarea on mount so desktop keyboard works immediately
   useEffect(() => {
-    const onKey = (e) => {
-      if (settingsOpenRef.current) return
+    if (inputRef.current) {
+      inputRef.current.value = SENTINEL
+      inputRef.current.focus()
+    }
+  }, [])
 
-      const k = e.key
+  // Re-focus when settings close
+  useEffect(() => {
+    if (!settingsOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+  }, [settingsOpen])
 
-      if (/^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]$/.test(k)) {
-        e.preventDefault()
-        const color = pickColor(settingsRef.current.selectedColors)
-        setChars(p => [...p, { char: k.toUpperCase(), color, id: nextId() }])
-      } else if (/^\d$/.test(k)) {
-        e.preventDefault()
-        const color = pickColor(settingsRef.current.selectedColors)
-        setChars(p => [...p, { char: k, color, id: nextId() }])
-      } else if (k === ' ') {
-        e.preventDefault()
-        setChars(p => [...p, { char: ' ', color: null, id: nextId() }])
-      } else if (k === 'Enter') {
-        e.preventDefault()
-        setChars(p => [...p, { char: '\n', color: null, id: nextId() }])
-      } else if (k === 'Backspace') {
-        e.preventDefault()
-        setChars(p => p.slice(0, -1))
-      } else {
-        e.preventDefault()
+  const focusInput = useCallback(() => {
+    if (!settingsOpenRef.current) inputRef.current?.focus()
+  }, [])
+
+  // Single input handler — works on both desktop and mobile
+  const handleInput = useCallback((e) => {
+    if (settingsOpenRef.current) {
+      e.target.value = SENTINEL
+      return
+    }
+
+    const { inputType, data } = e.nativeEvent
+
+    if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
+      setChars(p => p.slice(0, -1))
+    } else if (inputType === 'insertLineBreak') {
+      setChars(p => [...p, { char: '\n', color: null, id: nextId() }])
+    } else if (data) {
+      for (const char of data) {
+        if (/[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(char)) {
+          const color = pickColor(settingsRef.current.selectedColors)
+          setChars(p => [...p, { char: char.toUpperCase(), color, id: nextId() }])
+        } else if (/\d/.test(char)) {
+          const color = pickColor(settingsRef.current.selectedColors)
+          setChars(p => [...p, { char, color, id: nextId() }])
+        } else if (char === ' ') {
+          setChars(p => [...p, { char: ' ', color: null, id: nextId() }])
+        }
+        // Other characters silently ignored
       }
     }
 
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Reset to sentinel so next Backspace always triggers an input event
+    e.target.value = SENTINEL
+  }, [])
+
+  // Prevent Tab from stealing focus away from the hidden textarea
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Tab') e.preventDefault()
   }, [])
 
   const toggleColor = useCallback((id) => {
@@ -104,6 +132,20 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* Hidden textarea — captures keyboard input on both desktop and mobile */}
+      <textarea
+        ref={inputRef}
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
+        className="hidden-input"
+        autoCapitalize="none"
+        autoCorrect="off"
+        autoComplete="off"
+        spellCheck={false}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+
       {/* Header */}
       <header className="header">
         <div className="brand">
@@ -113,7 +155,7 @@ export default function App() {
         <div className="header-controls">
           <button
             className="btn btn-clear"
-            onClick={() => setChars([])}
+            onClick={() => { setChars([]); focusInput() }}
           >
             Wyczyść
           </button>
@@ -130,12 +172,12 @@ export default function App() {
         </div>
       </header>
 
-      {/* Typing Area */}
-      <main className="typing-area" style={{ fontSize: settings.fontSize }}>
+      {/* Typing Area — tap anywhere to (re)focus keyboard on mobile */}
+      <main className="typing-area" style={{ fontSize: settings.fontSize }} onClick={focusInput}>
         <div className="text-content">
           {chars.map(({ char, color, id }) => {
             if (char === '\n') return <br key={id} />
-            if (char === ' ') return <span key={id} className="space">{' '}</span>
+            if (char === ' ') return <span key={id} className="space">{' '}</span>
             return (
               <span key={id} className="letter" style={{ color }}>
                 {char}
