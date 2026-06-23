@@ -132,6 +132,7 @@ body {
   word-break: break-all;
   white-space: pre-wrap;
   min-height: 100%;
+  letter-spacing: 0.08em;
 }
 
 .letter {
