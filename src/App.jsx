@@ -21,7 +21,7 @@ const COLORS = [
 ]
 
 const STORAGE_KEY = 'gabi-word-settings'
-const DEFAULT_SETTINGS = { selectedColors: ['black'], fontSize: 24 }
+const DEFAULT_SETTINGS = { selectedColors: ['black'], fontSize: 54 }
 
 function loadSettings() {
   try {

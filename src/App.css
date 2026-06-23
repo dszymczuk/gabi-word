@@ -158,10 +158,10 @@ body {
 .cursor {
   display: inline-block;
   width: max(3px, 0.055em);
-  height: 0.85em;
+  height: 0.73em;
   background: var(--gray-mid);
   border-radius: 2px;
-  vertical-align: text-bottom;
+  vertical-align: baseline;
   margin-left: 2px;
   animation: blink 1s step-end infinite;
 }
